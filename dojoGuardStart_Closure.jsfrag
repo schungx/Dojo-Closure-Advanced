@@ -1,0 +1,49 @@
+// Provide for the three global namespaces
+
+goog.provide("dojo");
+goog.provide("dijit");
+goog.provide("dojox");
+
+dojo = 
+{
+	_scopeName: "dojo",
+	_scopePrefix: "",
+	_scopePrefixArgs: "",
+	_scopeSuffix: "",
+	_scopeMap: {},
+	_scopeMapRev: {}
+};
+dijit = { _scopeName: "dijit" };
+dojox = { _scopeName: "dojox" };
+
+
+// Top-level browser constants
+
+/** @const */ var ISIE;
+/** @const */ var ISFF;
+/** @const */ var ISAIR;
+/** @const */ var ISWEBKIT;
+/** @const */ var ISOPERA;
+/** @const */ var ISKHTML;
+/** @const */ var ISCHROME;
+/** @const */ var ISMAC;
+/** @const */ var ISMOZ;
+/** @const */ var ISMOZILLA;
+/** @type {number} */ var ISSAFARI;
+
+var closurePropertyNamesMap = {};
+  
+
+/**Build will replace this comment with a list of goog.provide**/
+
+
+// Create Closure aliasing scope
+
+goog.scope(function() 
+{
+	var d = dojo;
+	var _d = dojo;
+
+(function()
+{
+	/**Build will replace this comment with a scoped djConfig **/
