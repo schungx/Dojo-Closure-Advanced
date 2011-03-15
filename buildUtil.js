@@ -1019,7 +1019,7 @@ buildUtil.createLayerContents = function(
 		// Note: Complicated connect calls will not be matched -- too difficult to do without actually
 		//       parsing the JavaScript.
 
-		dojoContents = dojoContents.replace(/\b(dojo|d|_d|this)\.connect\s*\(\s*([\w\.]+)\s*\,([^\,]+)\,(?:\s*([\w\.]+)\s*\,)?\s*[\'\"](\w+)[\'\"]\s*\)/mg, function(s, d0, obj, evt, scope, mtd) 
+		dojoContents = dojoContents.replace(/\b(dojo|d|_d|this|_this)\.connect\s*\(\s*([\w\.]+)\s*\,([^\,]+)\,(?:\s*([\w\.]+)\s*\,)?\s*[\'\"](\w+)[\'\"]\s*\)/mg, function(s, d0, obj, evt, scope, mtd) 
 		{
 			switch(d0) {
 				default:
@@ -1027,7 +1027,9 @@ buildUtil.createLayerContents = function(
 					if (!scope) return s;
 					return d0 + ".connect(" + obj + ", " + evt + ", " + scope + ", " + (scope !== "null" ? scope + "." : "") + mtd + ")";
 				}
-				case "this": {
+				case "this": 
+				case "_this":
+				{
 					if (scope) return s;
 					return d0 + ".connect(" + obj + ", " + evt + ", this." + mtd + ")";
 				}
@@ -1071,7 +1073,7 @@ buildUtil.createLayerContents = function(
 		//         assumed to be WebKit-specific DOM events and not processed.  Same caveat for
 		//         user-defined events/methods beginning with "webkit"!
 
-		dojoContents = dojoContents.replace(/\b(dojo|d|_d|this)\.connect\s*\(\s*([\w\.]+)\s*\,\s*[\'\"](\w+)[\'\"]/mg, function(s, d0, obj, evt)
+		dojoContents = dojoContents.replace(/\b(dojo|d|_d|this|_this)\.connect\s*\(\s*([\w\.]+)\s*\,\s*[\'\"](\w+)[\'\"]/mg, function(s, d0, obj, evt)
 		{
 			// See if we need to fix a quoted event name
 			
@@ -1092,14 +1094,17 @@ buildUtil.createLayerContents = function(
 		// Note: Complicated subscribe calls will not be matched -- too difficult to do without actually
 		//       parsing the JavaScript.
 
-		dojoContents = dojoContents.replace(/\b(dojo|d|_d|this)\.subscribe\s*\(\s*([\'\"][^\'\"]+[\'\"]|[\w\.]+)\s*\,(?:\s*([\w\.]+)\s*\,)?\s*[\'\"](\w+)[\'\"]\s*\)/mg, function(s, d0, topic, scope, mtd) 
+		dojoContents = dojoContents.replace(/\b(dojo|d|_d|this|_this)\.subscribe\s*\(\s*([\'\"][^\'\"]+[\'\"]|[\w\.]+)\s*\,(?:\s*([\w\.]+)\s*\,)?\s*[\'\"](\w+)[\'\"]\s*\)/mg, function(s, d0, topic, scope, mtd) 
 		{
 			switch(d0) {
-				default: {
+				default: 
+				{
 					if (!scope) return s;
 					return d0 + ".subscribe(" + topic + ", " + scope + ", " + (scope !== "null" ? scope + "." : "") + mtd + ")";
 				}
-				case "this": {
+				case "this":
+				case "_this": 
+				{
 					if (scope) return s;
 					return d0 + ".subscribe(" + topic + ", this." + mtd + ")";
 				}
@@ -1137,7 +1142,7 @@ buildUtil.createLayerContents = function(
 		// Get a collection of dojo.declare calls 		
 		var rawtext = buildUtil.removeComments(dojoContents);
 		var declares = {};
-		var declareRegExp = /\bdojo\.declare\s*\(\s*[\'\"]([\w\.]+)[\'\"]\s*/mg;
+		var declareRegExp = /\b(?:dojo|d|_d)\.declare\s*\(\s*[\'\"]([\w\.]+)[\'\"]\s*/mg;
 		var tmp;
 		while((tmp = declareRegExp.exec(rawtext)) != null) 
 		{
@@ -1157,14 +1162,14 @@ buildUtil.createLayerContents = function(
 		// Beware: This will break code in a comment block because the JsDoc comments will conflict
 		//         with the end tag of the comment block!
 			
-		declareRegExp = /\bdojo\.declare\s*\(\s*[\'\"]([\w\.]+)[\'\"]\s*\,\s*([\w\.]+|\[\s*\]|\[\s*[\w\.]+(?:\s*\,\s*[\w\.]+)*\s*\])\s*,\s*\{/mg;
+		declareRegExp = /\b(dojo|d|_d)\.declare\s*\(\s*[\'\"]([\w\.]+)[\'\"]\s*\,\s*([\w\.]+|\[\s*\]|\[\s*[\w\.]+(?:\s*\,\s*[\w\.]+)*\s*\])\s*,\s*\{/mg;
 
-		dojoContents = dojoContents.replace(declareRegExp, function(s, p1, p2) 
+		dojoContents = dojoContents.replace(declareRegExp, function(s, d0, p1, p2) 
 		{
 			// Commented out?
 			if (!declares.hasOwnProperty(p1)) return s;
 			
-			// Prase the base classes
+			// Parse the base classes
 			if (p2 && p2.indexOf("[") === 0) {
 				p2 = p2.slice(1,-1);	// get rid of the []
 				p2 = p2.replace(/\s+/g, "");		// Remove empty spaces
@@ -1285,7 +1290,7 @@ buildUtil.createLayerContents = function(
 		}
 
 		if (mapstmt) {		
-			dojoContents = "dojo.mixin(closurePropertyNamesMap, {" + lineSeparator + mapstmt + lineSeparator + "});" + lineSeparator + dojoContents;
+			dojoContents = "dojo.mixin(closurePropertyNamesMap, closureTranspose({" + lineSeparator + mapstmt + lineSeparator + "}));" + lineSeparator + dojoContents;
 		}		
 
 		var gpmarker = "/**Build will replace this comment with a list of goog.provide**/";
@@ -1298,7 +1303,7 @@ buildUtil.createLayerContents = function(
 		
 		// Use marker method to avoid placing comments inside comment block
 		
-		var jsDocRegExp = /\b(dojo|d|_d)\.(extend|mixin)\s*\(\s*([\w\.]+\s*\,)|\bfunction\s*(?:\w+\s+)?\(\s*(\s*(?:\/\*.*?\*\/\s*)?\w+(?:\s*\,\s*(?:\/\*.*?\*\/\s*)?\w+)*)\s*(\/\*\s*(?:\,\s*\.\.\.|optional\s+args)\s*\*\/)?\s*\)/mg;
+		var jsDocRegExp = /\b(dojo|d|_d)\.(extend|mixin)\s*\(\s*([\w\.]+\s*\,)|\b((?:return\s+)?function)\s*(?:\w+\s+)?\(\s*(\s*(?:\/\*.*?\*\/\s*)?\w+(?:\s*\,\s*(?:\/\*.*?\*\/\s*)?\w+)*)\s*(\/\*\s*(?:\,\s*\.\.\.|optional\s+args)\s*\*\/)?\s*\)/mg;
 		var marker = "__X_X_X_XXX_X_X_X__";
 		var functions = {};
 		var seq = 1;
@@ -1308,7 +1313,7 @@ buildUtil.createLayerContents = function(
 		// conflict with the end tag of the comment blocks!
 		 
 		// First mark each function with a marker	
-		var markedtext = dojoContents.replace(jsDocRegExp, function(s, d0, x1, x2, p1, p2) 
+		var markedtext = dojoContents.replace(jsDocRegExp, function(s, d0, x1, x2, f0, p1, p2) 
 		{
 			return marker + (seq++) + s;
 		});
@@ -1364,9 +1369,9 @@ buildUtil.createLayerContents = function(
 		//       Closure Compiler to catch much more type errors.
 
 		// Now go through the text again		
-		jsDocRegExp = /((?:[\w\.]+\s*\=|\w+\s*\:)\s*)?(__X_X_X_XXX_X_X_X__\d+)function\s*(?:\w+\s+)?\(\s*(\s*(?:\/\*.*?\*\/\s*)?\w+(?:\s*\,\s*(?:\/\*.*?\*\/\s*)?\w+)*)\s*(\/\*\s*(?:\,\s*\.\.\.|optional\s+args)\s*\*\/)?\s*\)/mg;
+		jsDocRegExp = /((?:[\w\.]+\s*\=|\w+\s*\:)\s*)?(__X_X_X_XXX_X_X_X__\d+)((?:return\s+)?function)\s*(?:\w+\s+)?\(\s*(\s*(?:\/\*.*?\*\/\s*)?\w+(?:\s*\,\s*(?:\/\*.*?\*\/\s*)?\w+)*)\s*(\/\*\s*(?:\,\s*\.\.\.|optional\s+args)\s*\*\/)?\s*\)/mg;
 
-		dojoContents = dojoContents.replace(jsDocRegExp, function(s, v0, mp, p1, p2) 
+		dojoContents = dojoContents.replace(jsDocRegExp, function(s, v0, mp, f0, p1, p2) 
 		{
 			var funcpos = s.indexOf(mp) + mp.length;
 			

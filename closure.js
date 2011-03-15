@@ -8,6 +8,20 @@
 function closureEmpty(v_args) {};
 
 /** @param {!Object.<string>} map
+ *  @return {!Object.<string>}
+ */
+function closureTranspose(map)
+{
+	/** @const */ var result = {};
+	
+	for (/** @type {string} */ var propname in map) {
+		if (map.hasOwnProperty(propname)) result[map[propname]] = propname;
+	}
+
+	return result;
+};
+
+/** @param {!Object.<string>} map
  *  @return {string}
  */
 function closureGetMappedPropertyName(map)
@@ -61,7 +75,7 @@ function closureMapPropertyName(type, name, reverse)
  */
 function closureAddPropertyNamesMap(map) 
 {
-	dojo.mixin(closurePropertyNamesMap, map);
+	dojo.mixin(closurePropertyNamesMap, closureTranspose(map));
 };
 
 
@@ -255,6 +269,7 @@ closureAddPropertyNamesMap(
 	titleNode: "titleNode",	// Template attach-point
 	closeButtonNode: "closeButtonNode",	// Template attach-point
 	closeText: "closeText",	// Template attach-point
+	onCancel: "onCancel",	// Template attach-point
 	// dijit.DialogUnderlay
 	dialogId: "dialogId",
 	_getDialogIdAttr: "_getDialogIdAttr",
