@@ -35,38 +35,24 @@ function closureGetMappedPropertyName(map)
 
 /** @param {function(Object=)} type
  *  @param {string} name
- *  @param {boolean=} reverse
  *  @return {string}
  */
-function closureMapPropertyName(type, name, reverse) 
+function closureMapPropertyName(type, name) 
 {
-	if (reverse) {
-		for (var mapped in closurePropertyNamesMap) {
-			if (!closurePropertyNamesMap.hasOwnProperty(mapped)) continue;
-			if (name === closurePropertyNamesMap[mapped]) return mapped;
-		}
-	} else {
-		if (closurePropertyNamesMap.hasOwnProperty(name)) return closurePropertyNamesMap[name];
-	}
+	return (closurePropertyNamesMap[name] || name);
+};
 
-	/*
-	while (type && type.prototype) 
-	{
-		if (type.prototype._propNameMap) {
-			if (reverse) {
-				for (var mapped in type.prototype._propNameMap) {
-					if (!type.prototype._propNameMap.hasOwnProperty(mapped)) continue;
-					if (name === type.prototype._propNameMap[mapped]) return mapped;
-				}
-			} else {
-				if (type.prototype._propNameMap.hasOwnProperty(name)) return type.prototype._propNameMap[name];
-			}
-		}
-		
-		type = type.superclass ? type.superclass.constructor : null; 
-	}
-	*/
 
+/** @param {function(Object=)} type
+ *  @param {string} name
+ *  @return {string}
+ */
+function closureReverseMapPropertyName(type, name) 
+{
+	for (var mapped in closurePropertyNamesMap) {
+		if (!closurePropertyNamesMap.hasOwnProperty(mapped)) continue;
+		if (name === closurePropertyNamesMap[mapped]) return mapped;
+	}
 	return name;
 };
 
@@ -140,7 +126,7 @@ dijit._WidgetBase.prototype.set = function(name, value)
 	if(typeof name === "object") {
 		for(var x in name){
 			// We need to reverse-map the object field names to its original names
-			var fullname = closureMapPropertyName(this.constructor, x, true);
+			var fullname = closureReverseMapPropertyName(this.constructor, x);
 			this.set(fullname, name[x]); 
 		}
 		return this;
@@ -153,18 +139,31 @@ dijit._WidgetBase.prototype.set = function(name, value)
 		var result = this[names.s].apply(this, Array.prototype.slice.call(arguments, 1));
 	} else {
 		// if param is specified as DOM node attribute, copy it
-		var realname = closureMapPropertyName(this.constructor, name);
-
 		if(name in this.attributeMap) {
 			this._attrToDom(name, value);
-		} else if (realname in this.attributeMap) {
-			this._attrToDom(realname, value);
-		}
-		var oldValue = this[realname];
-		// FIXME: what about function assignments? Any way to connect() here?
-		this[realname] = value;
+		} else {
+			var realname = closureMapPropertyName(this.constructor, name);
+			if (realname in this.attributeMap) {
+				this._attrToDom(realname, value);
+			}
+		} 
+		this._set(name, value);
 	}
 	return result || this;
+};
+
+/** @param {string} name
+ *  @param {*} value
+ */
+dijit._WidgetBase.prototype._set = function(name, value)
+{
+	var realname = closureMapPropertyName(this.constructor, name);
+
+	var oldValue = this[realname];
+	this[realname] = value;
+	if(this._watchCallbacks && this._created && value !== oldValue){
+		this._watchCallbacks(name, oldValue, value);
+	}
 };
 
 /** @param {string} name
@@ -202,7 +201,7 @@ dijit._WidgetBase.prototype._applyAttributes = function()
 	dojo.forEach(this._getSetterAttributes(), function(a)
 	{
 		// a=mangled name
-		if(!(a in this.attributeMap) && !(closureMapPropertyName(this.constructor, a, true) in this.attributeMap)){
+		if(!(a in this.attributeMap) && !(closureReverseMapPropertyName(this.constructor, a) in this.attributeMap)){
 			condAttrApply(a, this);
 		}
 	}, this);
@@ -217,7 +216,7 @@ dijit._WidgetBase.prototype._getSetterAttributes = function()
 		var r = (ctor._setterAttrs = []), attrs, proto = ctor.prototype;
 		
 		for (var fxName in proto) {
-			var fullname = closureMapPropertyName(ctor, fxName, true);
+			var fullname = closureReverseMapPropertyName(ctor, fxName);
 			if (dojo.isFunction(proto[fxName]) && (attrs = fullname.match(/^_set([a-zA-Z]*)Attr$/)) && attrs[1]) {
 				var propname = attrs[1].charAt(0).toLowerCase() + attrs[1].substr(1);
 				r.push(closureMapPropertyName(ctor, propname));
