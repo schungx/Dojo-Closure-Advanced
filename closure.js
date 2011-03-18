@@ -1,6 +1,13 @@
 // This file contains (most of) the required modifications to Dojo/Dijit in order to
 // use the Closure Compiler with Advanced optimizations 
 
+// Some i18n modules are loaded via dojo._loadedModules
+
+dojo._loadedModules["dijit.nls.loading"] = dijit.nls.loading;
+dojo._loadedModules["dijit.nls.common"] = dijit.nls.common;
+dojo._loadedModules["dojo.cldr.nls.number"] = dojo.cldr.nls.number; 
+dojo._loadedModules["dojo.cldr.nls.gregorian"] = dojo.cldr.nls.gregorian; 
+
 // Global functions to handle property name maps
 
 /** @param {...} v_args 
