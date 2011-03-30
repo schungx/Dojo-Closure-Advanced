@@ -881,6 +881,7 @@ buildUtil.loadDependencyList = function(/*Object*/profile, /*Object?*/kwArgs, /*
 
 // CLOSURE: BEGIN
 var googprovides = [ "dojo", "dijit", "dojox" ];	// We deliberately use a global variable here!
+var declaredfunctions = {};												// We deliberately use a global variable here!
 // CLOSURE: END
 
 buildUtil.createLayerContents = function(
@@ -1146,7 +1147,7 @@ buildUtil.createLayerContents = function(
 		var tmp;
 		while((tmp = declareRegExp.exec(rawtext)) != null) 
 		{
-			declares[tmp[1]] = true;
+			declaredfunctions[tmp[1]] = declares[tmp[1]] = true;
 		}
 
 		// Rewrite dojo.declare'd classes:
@@ -1154,9 +1155,10 @@ buildUtil.createLayerContents = function(
 		// ==>
 		//	 /** @constructor 
 		//    *  @extends {hello.world}
-		//    *  @param {Object=} params
+		//    *  @param {...Object} params
+		//    *  @return {undefined}
 		//    */
-		//   foo.bar.Baz = null;
+		//   foo.bar.Baz = function(params) {};
 		//   foo.bar.Baz = dojo.declare("foo.bar.Baz", [ hello.world, abc.def.xyz ], /** @lends foo.bar.Baz.prototype */ { ...
 
 		// Beware: This will break code in a comment block because the JsDoc comments will conflict
@@ -1188,10 +1190,11 @@ buildUtil.createLayerContents = function(
 			print ("Injecting (for Closure Compiler): " + p1 + (p2 ? " [" + p2 + "]" : " [no base]"));
 				
 			return "/** @constructor" + lineSeparator +
-			        (p2 ? " *  @extends {" + p2 + "}" + lineSeparator : "") +
-			        " *  @param {Object=} params" + lineSeparator +
+			        (p2 && declaredfunctions.hasOwnProperty(p2) ? " *  @extends {" + p2 + "}" + lineSeparator : "") +
+			        " *  @param {...Object} params" + lineSeparator +
+			        " *  @return {undefined}" + lineSeparator +
 			        " */" + lineSeparator +
-			        p1 + " = null;" + lineSeparator +
+			        p1 + " = function(params) {};" + lineSeparator +
 			        p1 + " = " + s.slice(0,-1) +
 			        "/** @lends " + p1 + ".prototype */ {"; 			        
 		});
@@ -1404,7 +1407,7 @@ buildUtil.createLayerContents = function(
 					var pos = s.indexOf(p2);
 					if (pos >= 0) { s = s.substring(0, pos) + ", v_args" + s.substring(pos + p2.length); }
 				}
-				
+
 				//print ("Found function parameter " + pname + " of type " + comment);
 				
 				var types = comment.split("|");
@@ -1418,7 +1421,7 @@ buildUtil.createLayerContents = function(
 					
 					//print ("> Processing type " + typename);
 									
-					match = /(\??)(String|Boolean|Array|Object|Function|Number|(?:\w+(?:\.\w+)*))((?:\?|\.\.\.)?)/i.exec(typename);
+					match = /(\??)(String|Boolean|Array|Object|Function|Number|(?:[\-\w]+(?:\.[\-\w]+)*))(\?|\.\.\.)?/i.exec(typename);
 
 					if (!match) {
 						if (jsdoc) jsdoc += "|";
@@ -1428,15 +1431,30 @@ buildUtil.createLayerContents = function(
 
 					var variable = false;
 
+					//print (">> Matches: " + match[0] + "," + match[1] + "," + match[2] + "," + match[3]);
+
 					switch (match[1]) 
 					{
-						case "?": optional = true; break;
+						case "?": {
+							//print (">> optional");
+							optional = true; 
+							break;
+						}
 					}
 					
 					switch (match[3]) 
 					{
-						case "?": optional = true; break;
-						case "...": variable = true; p2 = null; break;
+						case "?": {
+							//print (">> optional");
+							optional = true; 
+							break;
+						}
+						case "...": {
+							//print (">> explicit variable length");
+							variable = true; 
+							p2 = null; 
+							break;
+						}
 					}
 					
 					var mapped = null;
@@ -1475,13 +1493,18 @@ buildUtil.createLayerContents = function(
 						case "documentelement": mapped = "Document"; break;
 
 						case "dojo.deferred":
-						case "deferred": mapped = "dojo.Deferred"; break;
+						case "deferred": mapped = "Object"; break; //mapped = "dojo.Deferred"; break;		// Avoid invalid type annotation errors
 
-						case "url": mapped = "dojo._Url"; break;
+						case "attribute-name-string":
+						case "attribute": mapped = "string"; break;
+						
+						case "url": mapped = "Object"; break; //mapped = "dojo._Url"; break;		// Avoid invalid type annotation errors
 
 						case "object": mapped = "Object"; break;
 
 						case "error": mapped = "Error"; break;
+						
+						case "_widget.handle": mapped = "Array.<!Array>"; break;
 						
 						case "handle":
 						case "anything": mapped = "*"; break;
@@ -1515,8 +1538,21 @@ buildUtil.createLayerContents = function(
 
 						// Anything else
 												
-						default: mapped = match[2]; break;
+						default: {
+							mapped = match[2];
+
+							// Handle things like dojo.number.__ParseOptions
+							/*
+							if (/^(dojo|dijit|dojox)(\.\w+)*(\.__\w+)$/.test(mapped)) {
+								mapped = "Object";
+							} else {
+							*/
+								mapped = "Object";	// Avoid invalid type annotation errors
+							//}
+						}
 					}
+
+					//print (">> Mapped type = " + mapped);
 					
 					if (jsdoc) jsdoc += "|";
 					jsdoc += (variable ? "..." : "") + mapped;
