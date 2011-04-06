@@ -115,7 +115,6 @@ if (dojo.getObject("dijit._WidgetBase"))
 					break;
 			}
 		}, this);
-		this[attr] = value;
 	};
 	
 	/** @param {string} name
